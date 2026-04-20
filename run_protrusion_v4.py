@@ -313,32 +313,15 @@ def build_dynein_block_from_xy(xy_list):
 # =============================================================
 
 def parse_dynein_positions(path):
-    """
-    Parse dynein_cortex:position report.
-    Format:  class  identity  posX  posY  fiber  abscissa
-    Returns list of (x, y) from the LAST frame.
-    """
+    
     return _parse_xy_report(path, x_col=2, y_col=3)
 
 def parse_kinesin_positions(path):
-    """
-    Parse kinesin1:state report.
-    Format:  class  identity  active  posX  posY  fiber1 abs1 fiber2 abs2
-    Returns list of (x, y) from the LAST frame.
-    """
+    
     return _parse_xy_report(path, x_col=3, y_col=4)
 
 def _parse_xy_report(path, x_col, y_col):
-    """Generic parser: reads LAST frame of any Cytosim report.
-
-    Dynein format:  class  identity  posX  posY  fiber  abscissa
-                    col0   col1      col2  col3  col4   col5
-    Kinesin format: class  identity  active  posX  posY  ...
-                    col0   col1      col2    col3  col4
-
-    All entries in the last frame are returned, including unbound
-    motors (fiber=0, abscissa=0) — the anchor position is still valid.
-    """
+    
     if not os.path.exists(path): return []
     frames, cur_frame, recs = {}, 0, []
 
@@ -362,8 +345,7 @@ def _parse_xy_report(path, x_col, y_col):
             except (ValueError, IndexError):
                 continue
 
-    # Save the final frame — this was the bug: last frame never saved
-    # because there is no subsequent '% frame' line to trigger the save
+    
     if recs:
         frames[cur_frame] = list(recs)
 
@@ -789,12 +771,7 @@ def apply_protrusion(verts, forces_df, procs):
         new_verts[j] += d*(verts[j]/(r_verts[j]+1e-12))
 
     # E: boundary shape smoothing
-    # Only smooth the MEMBRANE (non-process) vertices.
-    # Process vertices keep their radii exactly — we don't want to
-    # broaden or shrink the protrusion tip.
-    # Strategy: smooth the full extension array, then restore
-    # process-vertex radii to their unsmoothed values so the tip
-    # stays sharp while jagged membrane artefacts are removed.
+   
     if BOUNDARY_SMOOTH_SIGMA > 0:
         r_new     = np.linalg.norm(new_verts, axis=1)
         ext_new   = np.maximum(0.0, r_new - CELL_R)
