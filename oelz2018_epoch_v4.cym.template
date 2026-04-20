@@ -1,0 +1,140 @@
+% ====================================================================
+%  oelz2018_epoch_v4.cym.template
+%  Oelz, del Castillo, Gelfand & Mogilner 2018 (Biophys J 115:1614-1624)
+%
+%  Placeholders replaced by Python:
+%    EPOCH_IDX       integer epoch index
+%    POLY_FILE       polygon vertex filename
+%    N_MT            number of microtubules (0 when MT_SHAPES_BLOCK active)
+%    N_KINESIN       number of kinesin couples
+%    CYM_DT          integration timestep (s)
+%    CYM_NSTEPS      integration steps per epoch
+%    CYM_NBFRAMES    frames saved per epoch
+%    MT_SHAPES_BLOCK explicit MT position blocks (epoch > 0)
+%    DYNEIN_BLOCK    explicit dynein couple position blocks
+%
+%  All parameter values from Tables S1, S2 of Oelz et al. 2018.
+% ====================================================================
+
+% -- Simulation globals -----------------------------------------------
+set simul system
+{
+    time_step = CYM_DT
+    viscosity = 1.0
+    display = ( window_size=800,800; back_color=black; delay=5; zoom=0.85 )
+}
+
+% -- Cell boundary ----------------------------------------------------
+set space cell_body
+{
+    shape   = polygon
+    display = ( color=white; line=2 )
+}
+
+new cell_body
+{
+    file = POLY_FILE
+}
+
+% -- Microtubules -----------------------------------------------------
+set fiber microtubule
+{
+    rigidity         = 10
+    segmentation     = 0.5
+    confine          = inside, 200, cell_body
+
+    activity         = classic
+    growing_speed    =  0.15
+    shrinking_speed  = -0.30
+    catastrophe_rate =  0.065
+    rescue_rate      =  0.108
+    growing_force    =  0.5
+    min_length       =  0.5
+
+    display = (
+        color     = white
+        plus_end  = 10, 2
+        minus_end = 8,  1
+        line      = 2, 1
+    )
+}
+
+% -- Kinesin-1: MT-MT crosslinker -------------------------------------
+set hand kinesin_motor
+{
+    binding        = 10, 0.02
+    unbinding      = 0.1, 3.0
+    activity       = move
+    unloaded_speed = +0.57
+    stall_force    =  4.7
+    display = ( color=yellow; size=5 )
+}
+
+set hand kinesin_cargo
+{
+    binding   = 10, 0.02
+    unbinding = 0.1, 3.0
+    activity  = bind
+    display = ( color=orange; size=4 )
+}
+
+set couple kinesin1
+{
+    hand1      = kinesin_motor
+    hand2      = kinesin_cargo
+    stiffness  = 100
+    diffusion  = 10
+    activity   = crosslink
+}
+
+% -- Cortical dynein: single with explicit Python placement -----------
+% activity=fixed on the SINGLE pins the anchor point permanently to its
+% placement coordinate — the dynein CANNOT move along the membrane.
+% Binding rate raised to 20/s (from 10) so dyneins grab MTs faster
+% and generate more confine force on the boundary.
+set hand dynein_motor
+{
+    binding        = 20,  0.75  % rate /s raised for faster MT capture
+    unbinding      = 0.1, 2.0   % off-rate 0.1 /s (Table S1) — can release MT
+    activity       = move
+    unloaded_speed = -0.86      % um/s  minus-end directed (Table S1)
+    stall_force    =  1.36      % pN  (Table S1)
+    display = ( color=0x4488FF; size=6 )
+}
+
+set single dynein_cortex
+{
+    hand      = dynein_motor
+    stiffness = 200             % pN/um  stiff cortical anchor (FIXED to membrane)
+    activity  = fixed           % anchor immobile — only the MT moves
+}
+
+% -- Object placement --------------------------------------------------
+new N_MT fiber microtubule
+{
+    length      = 5
+    position    = inside
+    orientation = random
+}
+
+% MT position (epoch > 0): replaced by Python.
+MT_SHAPES_BLOCK
+
+% Kinesin: N_KINESIN = count-based placement (epoch 0 or carry disabled).
+% When CARRY_KINESIN_POSITIONS=True, N_KINESIN is set to 0 by Python and
+% KINESIN_BLOCK contains explicit position blocks from the previous epoch.
+new N_KINESIN couple kinesin1
+
+% KINESIN_BLOCK → replaced by Python with:
+%   new kinesin1 { position = x  y }
+KINESIN_BLOCK
+
+% Dynein: explicit positions managed by Python.
+% Each block places one dynein_cortex single at a chosen boundary vertex.
+DYNEIN_BLOCK
+
+% -- Run --------------------------------------------------------------
+run CYM_NSTEPS system
+{
+    nb_frames = CYM_NBFRAMES
+}
